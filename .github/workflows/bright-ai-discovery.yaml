@@ -3,7 +3,7 @@
 #
 # Setup (Settings -> Secrets and variables -> Actions):
 #   secret   BRIGHT_TOKEN     Bright API token with the `bot` scope (the agent runs a Repeater)
-#   variable BRIGHT_HOSTNAME  e.g. app.brightsec.com (no https://)
+#   variable BRIGHT_HOSTNAME  e.g. app.brightsec.com (a leading https:// is fine)
 #
 # Copilot needs no secret: it uses the built-in GITHUB_TOKEN with `copilot-requests: write`.
 # The repo must belong to an organization with Copilot CLI enabled (usage is billed to the org).
@@ -46,14 +46,17 @@ jobs:
         run: |
           npm install -g @github/copilot@1.0.96
           git clone --depth 1 https://github.com/NeuraLegion/bright-ai-plugins "$RUNNER_TEMP/plugins"
+          # tolerate "https://host/" in the variable; the agent reads BRIGHT_HOSTNAME too
+          HOST="${BRIGHT_HOSTNAME#https://}"; HOST="${HOST%/}"
+          echo "BRIGHT_HOSTNAME=$HOST" >> "$GITHUB_ENV"
           copilot mcp add --transport http \
             --header "Authorization: Api-Key $BRIGHT_TOKEN" \
-            brightsec "https://$BRIGHT_HOSTNAME/mcp"
+            brightsec "https://$HOST/mcp"
 
       - name: Run discovery agent
         run: |
           copilot \
             --plugin-dir "$RUNNER_TEMP/plugins/github-copilot" \
             --agent bright-security:bright-discovery \
-            --allow-all-tools \
+            --allow-all \
             -p "Discover and register this application's endpoints in Bright. This is a non-interactive CI run: there is no user to ask. $EXTRA_INSTRUCTIONS"
